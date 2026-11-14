@@ -68,6 +68,37 @@ Operators: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `contains`, `sta
 
 `Instance` picks one of several databases with the same schema (for example one per region); set it per client with `db.WithInstance("eu")`.
 
+## Redis: key-value and sessions
+
+```go
+kv := client.KV("sessions")
+kv.Set(ctx, "rate:7", 1, time.Minute)
+n, _ := kv.Incr(ctx, "rate:7", 1, time.Minute)
+cfg, found, _ := db.GetJSON[Settings](ctx, kv, "settings:7")
+kv.Publish(ctx, "user-events", Event{...})
+
+sessions := db.NewSessions[Session](kv, "sess:", 30*time.Minute)
+id, _ := sessions.Create(ctx, Session{UserID: 7})   // 256-bit random id, SET NX
+s, found, _ := sessions.Get(ctx, id)                 // refreshes the 30 min expiry
+sessions.Save(ctx, id, s)
+sessions.Destroy(ctx, id)
+```
+
+## Mongo: documents and analytics
+
+```go
+notes := client.Docs("analytics", "notes")
+notes.Insert(ctx, Note{Title: "a"})
+list, _ := db.FindDocs[Note](ctx, notes, db.M{"n": db.M{"$gte": 1}}, db.FindOptions{Sort: db.M{"n": -1}, Limit: 20})
+one, _ := db.FindOneDoc[Note](ctx, notes, db.M{"title": "a"})
+totals, _ := db.Aggregate[Total](ctx, notes, db.M{"$group": db.M{"_id": "$kind", "n": db.M{"$sum": 1}}})
+notes.Update(ctx, db.M{"title": "a"}, db.M{"$inc": db.M{"n": 1}}, false, false)
+
+a := client.Analytics("analytics")
+a.Track(ctx, db.Event{Name: "login", UserID: "7", Props: map[string]any{"via": "sso"}})
+points, _ := a.DAU(ctx, from, to)   // []DAUPoint{Day, Users}
+```
+
 ## License
 
 MIT

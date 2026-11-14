@@ -124,4 +124,7 @@ type Capabilities struct {
 	Operators []Operator     `json:"operators"`
 	MaxTake   int            `json:"maxTake"`
 	Databases []DatabaseInfo `json:"databases"`
+	Stores    []StoreInfo    `json:"stores,omitempty"`
+	KVOps     []KVOp         `json:"kvOps,omitempty"`
+	DocsOps   []DocsOp       `json:"docsOps,omitempty"`
 }
