@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"time"
 )
@@ -50,9 +49,7 @@ func raw(v any) json.RawMessage {
 }
 
 func (d *Docs) do(ctx context.Context, op DocsOp, req DocsRequest) (DocsResult, error) {
-	var r DocsResult
-	err := d.c.post(ctx, PathDocs(d.store, d.collection, op), req, &r)
-	return r, err
+	return d.c.t.Docs(ctx, d.store, d.collection, op, req)
 }
 
 func (d *Docs) Insert(ctx context.Context, docs ...any) ([]json.RawMessage, error) {
@@ -119,27 +116,17 @@ type Analytics struct {
 func (c *Client) Analytics(store string) *Analytics { return &Analytics{c: c, store: store} }
 
 func (a *Analytics) Track(ctx context.Context, events ...Event) (int, error) {
-	var r TrackResult
-	err := a.c.post(ctx, PathTrack(a.store), TrackRequest{Events: events}, &r)
+	r, err := a.c.t.Track(ctx, a.store, TrackRequest{Events: events})
 	return r.Accepted, err
 }
 
 func (a *Analytics) DAU(ctx context.Context, from, to time.Time) ([]DAUPoint, error) {
-	q := url.Values{}
+	var f, t string
 	if !from.IsZero() {
-		q.Set("from", from.Format(time.DateOnly))
+		f = from.Format(time.DateOnly)
 	}
 	if !to.IsZero() {
-		q.Set("to", to.Format(time.DateOnly))
+		t = to.Format(time.DateOnly)
 	}
-	path := PathDAU(a.store)
-	if len(q) > 0 {
-		path += "?" + q.Encode()
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.c.base+path, nil)
-	if err != nil {
-		return nil, err
-	}
-	var out []DAUPoint
-	return out, a.c.do(req, &out)
+	return a.c.t.DAU(ctx, a.store, f, t)
 }

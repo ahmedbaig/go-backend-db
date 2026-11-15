@@ -48,6 +48,24 @@ if errors.Is(err, db.ErrNotFound) { ... }
 
 Writes other than create always need a non-empty `where`.
 
+## Transports: HTTP or gRPC
+
+The same client and typed services run over either transport. HTTP is the default:
+
+```go
+c := db.NewClient("http://db-handler:8090", db.WithInstance("primary"))
+```
+
+gRPC goes through [go-backend-proto](https://github.com/ahmedbaig/go-backend-proto), which carries request and correlation IDs, the user and a service token as metadata:
+
+```go
+c, conn, err := dbgrpc.Dial("db-handler:9090", grpcx.ClientOptions{ServiceToken: token}, db.WithInstance("primary"))
+defer conn.Close()
+posts := db.NewService[Post](c, "demo", "post")
+```
+
+Errors keep their meaning across both: `errors.Is(err, db.ErrNotFound)` works the same, and `*db.RemoteError` carries the original code and message. Anything else that implements `db.Transport` can be passed to `db.NewClientWith`, which is handy for fakes in tests.
+
 ## Filters
 
 ```json

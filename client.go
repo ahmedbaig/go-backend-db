@@ -53,6 +53,7 @@ type Client struct {
 	http     *http.Client
 	instance string
 	headers  http.Header
+	t        Transport
 }
 
 type ClientOption func(*Client)
@@ -68,34 +69,32 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 	for _, o := range opts {
 		o(c)
 	}
+	if c.t == nil {
+		c.t = httpTransport{c}
+	}
 	return c
+}
+
+func NewClientWith(t Transport, opts ...ClientOption) *Client {
+	return NewClient("", append(opts, func(c *Client) { c.t = t })...)
 }
 
 func (c *Client) Query(ctx context.Context, q Query) (Result, error) {
 	if q.Instance == "" {
 		q.Instance = c.instance
 	}
-	var r Result
-	err := c.post(ctx, PathQuery, q, &r)
-	return r, err
+	return c.t.Query(ctx, q)
 }
 
 func (c *Client) Transaction(ctx context.Context, tx Transaction) (TransactionResult, error) {
 	if tx.Instance == "" {
 		tx.Instance = c.instance
 	}
-	var r TransactionResult
-	err := c.post(ctx, PathTransaction, tx, &r)
-	return r, err
+	return c.t.Transaction(ctx, tx)
 }
 
 func (c *Client) Capabilities(ctx context.Context) (Capabilities, error) {
-	var out Capabilities
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+PathCapabilities, nil)
-	if err != nil {
-		return out, err
-	}
-	return out, c.do(req, &out)
+	return c.t.Capabilities(ctx)
 }
 
 func (c *Client) post(ctx context.Context, path string, body, out any) error {

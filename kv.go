@@ -21,9 +21,7 @@ type KV struct {
 func (c *Client) KV(store string) *KV { return &KV{c: c, store: store} }
 
 func (k *KV) do(ctx context.Context, op KVOp, req KVRequest) (KVResult, error) {
-	var r KVResult
-	err := k.c.post(ctx, PathKV(k.store, op), req, &r)
-	return r, err
+	return k.c.t.KV(ctx, k.store, op, req)
 }
 
 func (k *KV) Get(ctx context.Context, key string) (json.RawMessage, bool, error) {
